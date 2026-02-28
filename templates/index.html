@@ -1,0 +1,727 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AquaSenseAI — Water Safety Analyzer</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:        #050d12;
+    --panel:     #0a1a22;
+    --border:    #0e3347;
+    --accent:    #00d4ff;
+    --accent2:   #00ff9d;
+    --warn:      #ffb800;
+    --danger:    #ff3c5a;
+    --safe:      #00ff9d;
+    --text:      #c8e8f0;
+    --muted:     #3a6070;
+    --glow:      0 0 20px rgba(0,212,255,0.3);
+    --glow-safe: 0 0 30px rgba(0,255,157,0.4);
+    --glow-warn: 0 0 30px rgba(255,184,0,0.4);
+    --glow-dngr: 0 0 30px rgba(255,60,90,0.4);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Rajdhani', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ── Animated background grid ── */
+  body::before {
+    content: '';
+    position: fixed; inset: 0; z-index: 0;
+    background-image:
+      linear-gradient(rgba(0,212,255,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,212,255,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    animation: gridShift 20s linear infinite;
+  }
+  @keyframes gridShift {
+    0%   { background-position: 0 0; }
+    100% { background-position: 40px 40px; }
+  }
+
+  /* ── Animated water blobs ── */
+  .blob {
+    position: fixed; border-radius: 50%; filter: blur(80px);
+    opacity: 0.07; z-index: 0; animation: blobFloat 12s ease-in-out infinite;
+  }
+  .blob-1 { width:500px; height:500px; background:#00d4ff; top:-100px; left:-100px; animation-delay:0s; }
+  .blob-2 { width:400px; height:400px; background:#00ff9d; bottom:-80px; right:-80px; animation-delay:-6s; }
+  .blob-3 { width:300px; height:300px; background:#0055ff; top:40%; left:60%; animation-delay:-3s; }
+  @keyframes blobFloat {
+    0%,100% { transform: translate(0,0) scale(1); }
+    33%      { transform: translate(30px,-20px) scale(1.05); }
+    66%      { transform: translate(-20px,30px) scale(0.95); }
+  }
+
+  /* ── Layout ── */
+  .page { position: relative; z-index: 1; max-width: 960px; margin: 0 auto; padding: 40px 24px 80px; }
+
+  /* ── Header ── */
+  header {
+    text-align: center; margin-bottom: 56px;
+    animation: fadeDown 0.8s ease both;
+  }
+  @keyframes fadeDown { from { opacity:0; transform:translateY(-24px); } to { opacity:1; transform:translateY(0); } }
+
+  .logo-row {
+    display: flex; align-items: center; justify-content: center;
+    gap: 14px; margin-bottom: 12px;
+  }
+  .logo-icon {
+    width: 52px; height: 52px;
+    border: 2px solid var(--accent);
+    border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 26px;
+    box-shadow: var(--glow);
+    animation: pulse 3s ease-in-out infinite;
+  }
+  @keyframes pulse { 0%,100%{box-shadow:0 0 20px rgba(0,212,255,0.3)} 50%{box-shadow:0 0 40px rgba(0,212,255,0.7)} }
+
+  h1 {
+    font-size: clamp(2rem, 5vw, 3rem);
+    font-weight: 700;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .subtitle {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.75rem;
+    color: var(--muted);
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    margin-top: 6px;
+  }
+
+  /* ── Main grid ── */
+  .main-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    margin-bottom: 20px;
+  }
+  @media (max-width: 660px) { .main-grid { grid-template-columns: 1fr; } }
+
+  /* ── Panel ── */
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 28px;
+    position: relative;
+    overflow: hidden;
+    transition: border-color 0.3s;
+  }
+  .panel::before {
+    content: '';
+    position: absolute; top: 0; left: 0; right: 0; height: 2px;
+    background: linear-gradient(90deg, transparent, var(--accent), transparent);
+    opacity: 0.6;
+  }
+  .panel:hover { border-color: rgba(0,212,255,0.3); }
+
+  .panel-title {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.7rem;
+    letter-spacing: 3px;
+    color: var(--accent);
+    text-transform: uppercase;
+    margin-bottom: 20px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .panel-title::before {
+    content: '';
+    width: 8px; height: 8px;
+    background: var(--accent);
+    border-radius: 50%;
+    box-shadow: 0 0 8px var(--accent);
+    animation: blink 2s ease infinite;
+  }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+  /* ── Inputs ── */
+  .input-group { margin-bottom: 18px; }
+
+  .input-label {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 6px;
+  }
+  .input-label span:first-child {
+    font-size: 0.85rem; font-weight: 600;
+    letter-spacing: 1px; text-transform: uppercase; color: var(--text);
+  }
+  .input-unit {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.7rem; color: var(--muted);
+  }
+
+  .input-wrap { position: relative; }
+
+  input[type="number"] {
+    width: 100%;
+    background: rgba(0,212,255,0.04);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 14px;
+    color: var(--accent);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 1rem;
+    outline: none;
+    transition: all 0.2s;
+    -moz-appearance: textfield;
+  }
+  input[type="number"]::-webkit-inner-spin-button { display: none; }
+  input[type="number"]:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(0,212,255,0.1);
+    background: rgba(0,212,255,0.07);
+  }
+
+  .range-hint {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.65rem; color: var(--muted);
+    margin-top: 4px; text-align: right;
+  }
+
+  /* ── Slider ── */
+  input[type="range"] {
+    width: 100%; margin-top: 6px;
+    -webkit-appearance: none;
+    height: 3px;
+    background: var(--border);
+    border-radius: 2px; outline: none; cursor: pointer;
+  }
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 8px var(--accent);
+    cursor: pointer;
+    transition: transform 0.15s;
+  }
+  input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.3); }
+
+  /* ── Analyse button ── */
+  .btn-analyse {
+    width: 100%; padding: 14px;
+    background: linear-gradient(135deg, rgba(0,212,255,0.15), rgba(0,255,157,0.1));
+    border: 1px solid var(--accent);
+    border-radius: 10px;
+    color: var(--accent);
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 1rem; font-weight: 700;
+    letter-spacing: 4px; text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative; overflow: hidden;
+    margin-top: 8px;
+  }
+  .btn-analyse::after {
+    content: '';
+    position: absolute; inset: 0;
+    background: linear-gradient(135deg, rgba(0,212,255,0.2), rgba(0,255,157,0.15));
+    opacity: 0; transition: opacity 0.2s;
+  }
+  .btn-analyse:hover { box-shadow: var(--glow); transform: translateY(-1px); }
+  .btn-analyse:hover::after { opacity: 1; }
+  .btn-analyse:active { transform: translateY(0); }
+  .btn-analyse.loading { pointer-events: none; opacity: 0.7; }
+
+  /* ── Result panel ── */
+  .result-panel {
+    grid-column: 1 / -1;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 32px;
+    position: relative; overflow: hidden;
+    transition: border-color 0.5s, box-shadow 0.5s;
+    min-height: 180px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .result-panel.safe   { border-color: var(--safe);   box-shadow: var(--glow-safe); }
+  .result-panel.warning{ border-color: var(--warn);   box-shadow: var(--glow-warn); }
+  .result-panel.danger { border-color: var(--danger); box-shadow: var(--glow-dngr); }
+
+  .result-idle {
+    text-align: center;
+    font-family: 'Share Tech Mono', monospace;
+    color: var(--muted); font-size: 0.85rem; letter-spacing: 2px;
+  }
+  .result-idle .icon { font-size: 2.5rem; margin-bottom: 10px; opacity: 0.4; }
+
+  .result-content {
+    width: 100%; display: none;
+    animation: fadeIn 0.5s ease both;
+  }
+  @keyframes fadeIn { from{opacity:0;transform:scale(0.97)} to{opacity:1;transform:scale(1)} }
+  .result-content.visible { display: flex; gap: 32px; align-items: center; }
+  @media (max-width: 560px) { .result-content.visible { flex-direction: column; } }
+
+  /* ── Gauge ── */
+  .gauge-wrap { flex-shrink: 0; position: relative; width: 160px; height: 160px; }
+  .gauge-svg { width: 160px; height: 160px; transform: rotate(-90deg); }
+  .gauge-bg   { fill: none; stroke: var(--border); stroke-width: 10; }
+  .gauge-fill { fill: none; stroke-width: 10; stroke-linecap: round;
+                stroke-dasharray: 408; stroke-dashoffset: 408;
+                transition: stroke-dashoffset 1.2s cubic-bezier(.4,0,.2,1), stroke 0.5s; }
+  .gauge-center {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+  }
+  .gauge-pct {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 2.2rem; font-weight: 700;
+    line-height: 1;
+    transition: color 0.5s;
+  }
+  .gauge-label-sm {
+    font-size: 0.65rem; letter-spacing: 2px;
+    color: var(--muted); margin-top: 2px;
+  }
+
+  /* ── Result info ── */
+  .result-info { flex: 1; }
+  .result-status {
+    font-size: clamp(1.6rem, 4vw, 2.2rem);
+    font-weight: 700; letter-spacing: 3px;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+    transition: color 0.5s;
+  }
+  .result-score-row {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.75rem; color: var(--muted);
+    margin-bottom: 16px; letter-spacing: 1px;
+  }
+  .result-bars { display: flex; flex-direction: column; gap: 8px; }
+  .bar-row { display: flex; align-items: center; gap: 10px; }
+  .bar-name {
+    font-size: 0.75rem; font-weight: 600;
+    letter-spacing: 1px; text-transform: uppercase;
+    width: 110px; flex-shrink: 0; color: var(--muted);
+  }
+  .bar-track {
+    flex: 1; height: 4px;
+    background: var(--border); border-radius: 2px; overflow: hidden;
+  }
+  .bar-fill {
+    height: 100%; border-radius: 2px;
+    background: var(--accent);
+    width: 0%; transition: width 1s cubic-bezier(.4,0,.2,1) 0.3s;
+  }
+  .bar-val {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.72rem; color: var(--text);
+    width: 52px; text-align: right; flex-shrink: 0;
+  }
+
+  /* ── Test cases strip ── */
+  .test-strip {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 24px 28px;
+    animation: fadeUp 0.8s ease 0.3s both;
+  }
+  @keyframes fadeUp { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
+
+  .test-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-top: 16px; }
+
+  .test-btn {
+    background: rgba(0,212,255,0.04);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 14px;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-align: left;
+  }
+  .test-btn:hover { border-color: var(--accent); background: rgba(0,212,255,0.08); transform: translateY(-2px); }
+  .test-btn-label {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.65rem; letter-spacing: 2px;
+    margin-bottom: 6px;
+  }
+  .test-btn-label.safe   { color: var(--safe); }
+  .test-btn-label.warn   { color: var(--warn); }
+  .test-btn-label.danger { color: var(--danger); }
+  .test-btn-label.test   { color: var(--accent); }
+  .test-btn-vals {
+    font-size: 0.78rem; color: var(--muted); line-height: 1.5;
+  }
+
+  /* ── Error toast ── */
+  .toast {
+    position: fixed; bottom: 24px; right: 24px;
+    background: rgba(255,60,90,0.15);
+    border: 1px solid var(--danger);
+    border-radius: 10px; padding: 12px 18px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.8rem; color: var(--danger);
+    z-index: 999; max-width: 320px;
+    transform: translateY(80px); opacity: 0;
+    transition: all 0.3s;
+  }
+  .toast.show { transform: translateY(0); opacity: 1; }
+
+  /* ── Spinner ── */
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .spinner {
+    display: inline-block; width: 16px; height: 16px;
+    border: 2px solid rgba(0,212,255,0.3);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    vertical-align: middle; margin-right: 8px;
+  }
+</style>
+</head>
+<body>
+
+<div class="blob blob-1"></div>
+<div class="blob blob-2"></div>
+<div class="blob blob-3"></div>
+
+<div class="page">
+
+  <!-- Header -->
+  <header>
+    <div class="logo-row">
+      <div class="logo-icon">💧</div>
+      <h1>AquaSenseAI</h1>
+    </div>
+    <p class="subtitle">TFLite Water Potability Analyzer &nbsp;·&nbsp; v2 Model</p>
+  </header>
+
+  <!-- Main grid -->
+  <div class="main-grid">
+
+    <!-- Input panel -->
+    <div class="panel" style="animation: fadeUp 0.6s ease 0.1s both;">
+      <div class="panel-title">Sample Parameters</div>
+
+      <div class="input-group">
+        <div class="input-label">
+          <span>pH Level</span>
+          <span class="input-unit">0 – 14</span>
+        </div>
+        <div class="input-wrap">
+          <input type="number" id="ph" value="7.4" min="0" max="14" step="0.01">
+        </div>
+        <input type="range" id="ph-slider" min="0" max="14" step="0.01" value="7.4">
+        <div class="range-hint">Optimal: 6.5 – 8.5</div>
+      </div>
+
+      <div class="input-group">
+        <div class="input-label">
+          <span>Turbidity</span>
+          <span class="input-unit">NTU</span>
+        </div>
+        <div class="input-wrap">
+          <input type="number" id="turbidity" value="3.5" min="0" max="10" step="0.01">
+        </div>
+        <input type="range" id="turbidity-slider" min="0" max="10" step="0.01" value="3.5">
+        <div class="range-hint">Optimal: &lt; 4.0 NTU</div>
+      </div>
+
+      <div class="input-group">
+        <div class="input-label">
+          <span>Chloramines</span>
+          <span class="input-unit">mg/L</span>
+        </div>
+        <div class="input-wrap">
+          <input type="number" id="chloramines" value="5.9" min="0" max="15" step="0.01">
+        </div>
+        <input type="range" id="chloramines-slider" min="0" max="15" step="0.01" value="5.9">
+        <div class="range-hint">Optimal: &lt; 7.5 mg/L</div>
+      </div>
+
+      <div class="input-group">
+        <div class="input-label">
+          <span>Total Dissolved Solids</span>
+          <span class="input-unit">mg/L</span>
+        </div>
+        <div class="input-wrap">
+          <input type="number" id="solids" value="9000" min="0" max="70000" step="1">
+        </div>
+        <input type="range" id="solids-slider" min="0" max="70000" step="100" value="9000">
+        <div class="range-hint">Optimal: &lt; 15,000 mg/L</div>
+      </div>
+
+      <button class="btn-analyse" id="analyseBtn" onclick="analyse()">
+        Analyse Sample
+      </button>
+    </div>
+
+    <!-- Info panel -->
+    <div class="panel" style="animation: fadeUp 0.6s ease 0.2s both;">
+      <div class="panel-title">Model Info</div>
+
+      <div style="font-size:0.85rem; line-height:1.8; color:var(--muted); margin-bottom:20px;">
+        <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);">
+          <span>Architecture</span><span style="color:var(--text)">DNN v2 (4-layer)</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);">
+          <span>Format</span><span style="color:var(--accent);font-family:'Share Tech Mono',monospace">.tflite</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);">
+          <span>Input features</span><span style="color:var(--text)">4</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);">
+          <span>Output</span><span style="color:var(--text)">Safety score 0–1</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);">
+          <span>Accuracy</span><span style="color:var(--accent2)">~91%</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;padding:6px 0;">
+          <span>Quantization</span><span style="color:var(--text)">DEFAULT</span>
+        </div>
+      </div>
+
+      <div class="panel-title" style="margin-bottom:12px;">Decision Thresholds</div>
+      <div style="font-size:0.82rem; display:flex; flex-direction:column; gap:8px;">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div style="width:10px;height:10px;border-radius:50%;background:var(--safe);box-shadow:0 0 6px var(--safe);flex-shrink:0;"></div>
+          <span style="color:var(--muted);">POTABLE</span>
+          <span style="margin-left:auto;font-family:'Share Tech Mono',monospace;color:var(--safe);">≥ 60%</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div style="width:10px;height:10px;border-radius:50%;background:var(--warn);box-shadow:0 0 6px var(--warn);flex-shrink:0;"></div>
+          <span style="color:var(--muted);">WARNING</span>
+          <span style="margin-left:auto;font-family:'Share Tech Mono',monospace;color:var(--warn);">30–60%</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div style="width:10px;height:10px;border-radius:50%;background:var(--danger);box-shadow:0 0 6px var(--danger);flex-shrink:0;"></div>
+          <span style="color:var(--muted);">NOT POTABLE</span>
+          <span style="margin-left:auto;font-family:'Share Tech Mono',monospace;color:var(--danger);">&lt; 30%</span>
+        </div>
+      </div>
+
+      <div style="margin-top:24px;">
+        <div class="panel-title" style="margin-bottom:10px;">API Endpoint</div>
+        <div style="background:rgba(0,0,0,0.3);border:1px solid var(--border);border-radius:8px;padding:10px 12px;">
+          <code style="font-family:'Share Tech Mono',monospace;font-size:0.72rem;color:var(--accent2);line-height:1.8;">
+            POST /predict<br>
+            <span style="color:var(--muted);">{ "ph": 7.4, "turbidity": 3.5,<br>&nbsp;&nbsp;"chloramines": 5.9, "solids": 9000 }</span>
+          </code>
+        </div>
+      </div>
+    </div>
+
+    <!-- Result panel (full width) -->
+    <div class="result-panel" id="resultPanel">
+      <div class="result-idle" id="resultIdle">
+        <div class="icon">⬡</div>
+        <div>AWAITING SAMPLE INPUT</div>
+        <div style="margin-top:4px;font-size:0.65rem;opacity:0.5;">adjust parameters and click analyse</div>
+      </div>
+      <div class="result-content" id="resultContent">
+        <!-- filled by JS -->
+      </div>
+    </div>
+
+  </div><!-- /main-grid -->
+
+  <!-- Test cases -->
+  <div class="test-strip">
+    <div class="panel-title">Preset Test Cases</div>
+    <div class="test-grid">
+      <div class="test-btn" onclick="loadPreset(7.37,3.21,5.94,9460)">
+        <div class="test-btn-label safe">✓ POTABLE</div>
+        <div class="test-btn-vals">pH 7.37 · Turb 3.21<br>Chlor 5.94 · TDS 9460</div>
+      </div>
+      <div class="test-btn" onclick="loadPreset(7.08,3.96,7.12,22014)">
+        <div class="test-btn-label warn">⚠ WARNING</div>
+        <div class="test-btn-vals">pH 7.08 · Turb 3.96<br>Chlor 7.12 · TDS 22014</div>
+      </div>
+      <div class="test-btn" onclick="loadPreset(3.71,4.50,6.63,18630)">
+        <div class="test-btn-label danger">✗ NOT POTABLE</div>
+        <div class="test-btn-vals">pH 3.71 · Turb 4.50<br>Chlor 6.63 · TDS 18630</div>
+      </div>
+      <div class="test-btn" onclick="loadPreset(7.4,3.5,5.9,9000)">
+        <div class="test-btn-label test">⬡ QUICK TEST</div>
+        <div class="test-btn-vals">pH 7.4 · Turb 3.5<br>Chlor 5.9 · TDS 9000</div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /page -->
+
+<!-- Error toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+  // ── Sync sliders ↔ number inputs ──────────────────────────────────────────
+  const pairs = [
+    ['ph', 'ph-slider'],
+    ['turbidity', 'turbidity-slider'],
+    ['chloramines', 'chloramines-slider'],
+    ['solids', 'solids-slider'],
+  ];
+  pairs.forEach(([numId, sliderId]) => {
+    const num   = document.getElementById(numId);
+    const slide = document.getElementById(sliderId);
+    num.addEventListener('input',   () => slide.value = num.value);
+    slide.addEventListener('input', () => num.value   = slide.value);
+  });
+
+  // ── Load preset ───────────────────────────────────────────────────────────
+  function loadPreset(ph, turb, chlor, sol) {
+    setValue('ph',          'ph-slider',          ph);
+    setValue('turbidity',   'turbidity-slider',   turb);
+    setValue('chloramines', 'chloramines-slider', chlor);
+    setValue('solids',      'solids-slider',      sol);
+    analyse();
+  }
+  function setValue(numId, sliderId, val) {
+    document.getElementById(numId).value    = val;
+    document.getElementById(sliderId).value = val;
+  }
+
+  // ── Analyse ───────────────────────────────────────────────────────────────
+  async function analyse() {
+    const btn = document.getElementById('analyseBtn');
+    btn.classList.add('loading');
+    btn.innerHTML = '<span class="spinner"></span>Analysing…';
+
+    const payload = {
+      ph:          parseFloat(document.getElementById('ph').value),
+      turbidity:   parseFloat(document.getElementById('turbidity').value),
+      chloramines: parseFloat(document.getElementById('chloramines').value),
+      solids:      parseFloat(document.getElementById('solids').value),
+    };
+
+    try {
+      const res  = await fetch('/predict', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Server error');
+      showResult(data, payload);
+    } catch (err) {
+      showToast('Error: ' + err.message);
+    } finally {
+      btn.classList.remove('loading');
+      btn.innerHTML = 'Analyse Sample';
+    }
+  }
+
+  // ── Show result ───────────────────────────────────────────────────────────
+  function showResult(data, payload) {
+    const panel   = document.getElementById('resultPanel');
+    const idle    = document.getElementById('resultIdle');
+    const content = document.getElementById('resultContent');
+
+    const colorMap = { safe:'var(--safe)', warning:'var(--warn)', danger:'var(--danger)' };
+    const color    = colorMap[data.status];
+
+    panel.className   = 'result-panel ' + data.status;
+    idle.style.display = 'none';
+
+    // Feature bars — normalise each to 0-100% for display
+    const barData = [
+      { name:'pH',        val: payload.ph,          max: 14,    ideal: 7.0 },
+      { name:'Turbidity', val: payload.turbidity,   max: 10,    ideal: 2.0 },
+      { name:'Chloramin.', val: payload.chloramines, max: 15,   ideal: 5.0 },
+      { name:'TDS',       val: payload.solids / 1000, max: 70,  ideal: 8.0 },
+    ];
+
+    const barHTML = barData.map(b => {
+      const pct = Math.min(100, (b.val / b.max) * 100).toFixed(1);
+      const display = b.name === 'TDS'
+        ? (payload.solids >= 1000 ? (payload.solids/1000).toFixed(1)+'k' : payload.solids)
+        : b.val;
+      return `
+        <div class="bar-row">
+          <span class="bar-name">${b.name}</span>
+          <div class="bar-track">
+            <div class="bar-fill" style="background:${color}" data-width="${pct}"></div>
+          </div>
+          <span class="bar-val">${display}</span>
+        </div>`;
+    }).join('');
+
+    content.innerHTML = `
+      <div class="gauge-wrap">
+        <svg class="gauge-svg" viewBox="0 0 160 160">
+          <circle class="gauge-bg"   cx="80" cy="80" r="65"/>
+          <circle class="gauge-fill" cx="80" cy="80" r="65"
+            id="gaugeFill" style="stroke:${color}"/>
+        </svg>
+        <div class="gauge-center">
+          <div class="gauge-pct" id="gaugePct" style="color:${color}">0%</div>
+          <div class="gauge-label-sm">SAFETY</div>
+        </div>
+      </div>
+      <div class="result-info">
+        <div class="result-status" style="color:${color}">${data.label}</div>
+        <div class="result-score-row">
+          RAW SCORE: ${data.score.toFixed(4)} &nbsp;|&nbsp;
+          CONFIDENCE: ${data.percentage.toFixed(1)}%
+        </div>
+        <div class="result-bars">${barHTML}</div>
+      </div>`;
+
+    content.className = 'result-content visible';
+
+    // Animate gauge
+    const circumference = 2 * Math.PI * 65;  // 408.41
+    const target  = data.percentage / 100;
+    const offset  = circumference * (1 - target);
+    const fill    = document.getElementById('gaugeFill');
+    const pctEl   = document.getElementById('gaugePct');
+
+    setTimeout(() => {
+      fill.style.strokeDashoffset = offset;
+      animateCount(pctEl, 0, data.percentage, 1200);
+    }, 50);
+
+    // Animate bars
+    setTimeout(() => {
+      document.querySelectorAll('.bar-fill').forEach(b => {
+        b.style.width = b.dataset.width + '%';
+      });
+    }, 300);
+  }
+
+  function animateCount(el, from, to, duration) {
+    const start = performance.now();
+    function step(now) {
+      const t = Math.min((now - start) / duration, 1);
+      const ease = t < 0.5 ? 2*t*t : -1+(4-2*t)*t;
+      el.textContent = (from + (to - from) * ease).toFixed(1) + '%';
+      if (t < 1) requestAnimationFrame(step);
+    }
+    requestAnimationFrame(step);
+  }
+
+  // ── Toast ─────────────────────────────────────────────────────────────────
+  function showToast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 3500);
+  }
+
+  // ── Enter key submits ─────────────────────────────────────────────────────
+  document.addEventListener('keydown', e => { if (e.key === 'Enter') analyse(); });
+</script>
+</body>
+</html>
